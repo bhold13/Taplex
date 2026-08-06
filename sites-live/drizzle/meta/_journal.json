@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784319491489,
+      "tag": "0000_handy_captain_midlands",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784395541065,
+      "tag": "0001_previous_blue_shield",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784401236795,
+      "tag": "0002_spotty_black_crow",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784402429912,
+      "tag": "0003_rainy_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784403212211,
+      "tag": "0004_wet_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784406603954,
+      "tag": "0005_spotty_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784409408052,
+      "tag": "0006_icy_shinko_yamashiro",
+      "breakpoints": true
+    }
+  ]
+}

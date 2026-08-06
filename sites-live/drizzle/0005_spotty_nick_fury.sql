@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `social_icon_style` text DEFAULT 'brand' NOT NULL;

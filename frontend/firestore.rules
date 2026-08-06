@@ -1,0 +1,102 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /emailSubscribers/{subscriberId} {
+      allow read, update, delete: if false;
+      allow create: if subscriberId.matches('^[a-f0-9]{64}$')
+        && request.resource.data.keys().hasOnly(['email', 'signupDate', 'sourcePage', 'consentStatus'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && request.resource.data.signupDate == request.time
+        && request.resource.data.sourcePage in ['homepage', 'gallery']
+        && request.resource.data.consentStatus == 'subscribed';
+    }
+
+    function validProfileFields() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'username',
+        'usernameLower',
+        'displayName',
+        'bio',
+        'category',
+        'location',
+        'profilePhotoUrl',
+        'coverImageUrl',
+        'galleryItems',
+        'phoneNumber',
+        'phoneLabel',
+        'showPhoneNumber',
+        'socialLinks',
+        'mediaLinks',
+        'services',
+        'bookingUrl',
+        'contactEmail',
+        'plan',
+        'isPublic',
+        'isVerified',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    function validUsernameLookup(uid, usernameLower) {
+      return getAfter(/databases/$(database)/documents/usernames/$(usernameLower)).data.uid == uid;
+    }
+
+    match /profiles/{uid} {
+      allow read: if resource.data.isPublic == true || (signedIn() && request.auth.uid == uid);
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.plan == 'free'
+        && request.resource.data.isVerified == false
+        && request.resource.data.showPhoneNumber is bool
+        && request.resource.data.galleryItems is list
+        && request.resource.data.galleryItems.size() <= 12
+        && request.resource.data.usernameLower.matches('^[a-z0-9._-]+$')
+        && validProfileFields()
+        && validUsernameLookup(uid, request.resource.data.usernameLower);
+
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.isVerified == resource.data.isVerified
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.showPhoneNumber is bool
+        && request.resource.data.galleryItems is list
+        && request.resource.data.galleryItems.size() <= 12
+        && request.resource.data.usernameLower.matches('^[a-z0-9._-]+$')
+        && validProfileFields()
+        && validUsernameLookup(uid, request.resource.data.usernameLower);
+
+      allow delete: if false;
+    }
+
+    match /usernames/{usernameLower} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'createdAt'])
+        && getAfter(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.usernameLower == usernameLower;
+
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'createdAt'])
+        && getAfter(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.usernameLower == usernameLower;
+
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+  }
+}
