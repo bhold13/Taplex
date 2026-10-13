@@ -189,7 +189,7 @@ export const nfcSecureTags = sqliteTable("nfc_secure_tags", {
   keyMode: text("key_mode").notNull().default("development"),
   destinationPath: text("destination_path"),
   status: text("status").notNull().default("active"),
-  highestCounter: integer("highest_counter").notNull().default(0),
+  highestCounter: integer("highest_counter").notNull().default(-1),
   verifiedTapCount: integer("verified_tap_count").notNull().default(0),
   replayCount: integer("replay_count").notNull().default(0),
   invalidCount: integer("invalid_count").notNull().default(0),
