@@ -11,6 +11,8 @@ export type TapLexRuntimeEnv = {
   RESEND_API_KEY?: string;
   PASSWORD_RESET_FROM_EMAIL?: string;
   TAP_ANALYTICS_SALT?: string;
+  NTAG424_DEV_META_KEY?: string;
+  NTAG424_DEV_FILE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   FIREBASE_API_KEY?: string;
