@@ -169,7 +169,7 @@ export async function verifySecureTap(publicIdRaw: string, encryptedPiccHex: str
       .bind(now, now, row.unit_id).run();
   }
 
-  if (row.unit_status === "active") {
+  if (freshTap && row.unit_status === "active") {
     const tag: PublicNfcTag = {
       id: row.unit_id,
       serial_number: row.serial_number,
