@@ -51,3 +51,8 @@ Before selling a tag as TapLex Secure:
 - implement provisioning audit logs
 - implement originality-signature verification where required
 - add admin provisioning UI and production-state gates
+
+
+## Validation gate
+
+This branch must pass the repository TapLex Secure validation workflow (install, TypeScript, ESLint, production build, and rendered HTML tests) before merge.
