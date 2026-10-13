@@ -258,7 +258,7 @@ async function initializeSchema() {
       key_mode TEXT DEFAULT 'development' NOT NULL,
       destination_path TEXT,
       status TEXT DEFAULT 'active' NOT NULL,
-      highest_counter INTEGER DEFAULT 0 NOT NULL,
+      highest_counter INTEGER DEFAULT -1 NOT NULL,
       verified_tap_count INTEGER DEFAULT 0 NOT NULL,
       replay_count INTEGER DEFAULT 0 NOT NULL,
       invalid_count INTEGER DEFAULT 0 NOT NULL,
