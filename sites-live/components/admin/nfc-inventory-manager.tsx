@@ -12,6 +12,7 @@ type Unit = {
 };
 type CreatedUnit = { id: string; serialNumber: string; url: string; qrFilename: string };
 type AuditLog = { id: string; serial_number?: string; batch_number?: string; actor_email: string; action: string; metadata_json: string; created_at: string };
+type SecureTag = { unit_id: string; public_id: string; uid_hex: string; destination_path: string | null; key_mode: string; highest_counter: number; verified_tap_count: number; replay_count: number; invalid_count: number };
 type Toast = { kind: "success" | "error"; message: string };
 
 const emptyBatch = { productType: "NFC Tag", color: "Black & Gold", sku: "TLX-TAG", batchNumber: "", quantity: "10", status: "inventory", purchaserEmail: "", orderId: "" };
@@ -19,6 +20,7 @@ const emptyBatch = { productType: "NFC Tag", color: "Black & Gold", sku: "TLX-TA
 export default function NfcInventoryManager() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [secureTags, setSecureTags] = useState<SecureTag[]>([]);
   const [created, setCreated] = useState<CreatedUnit[]>([]);
   const [form, setForm] = useState(emptyBatch);
   const [search, setSearch] = useState("");
@@ -38,9 +40,9 @@ export default function NfcInventoryManager() {
     try {
       const query = new URLSearchParams(); if (search.trim()) query.set("search", search.trim()); if (status) query.set("status", status);
       const response = await fetch(`/api/admin/nfc?${query}`, { headers: { Accept: "application/json" } });
-      const data = await readApiResponse<{ units?: Unit[]; auditLogs?: AuditLog[] }>(response);
+      const data = await readApiResponse<{ units?: Unit[]; auditLogs?: AuditLog[]; secureTags?: SecureTag[] }>(response);
       if (!response.ok) throw new Error(data.error || "NFC inventory could not be loaded.");
-      setUnits(data.units || []); setAuditLogs(data.auditLogs || []);
+      setUnits(data.units || []); setAuditLogs(data.auditLogs || []); setSecureTags(data.secureTags || []);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "NFC inventory could not be loaded."); }
     finally { setLoading(false); }
   }, [search, status]);
@@ -106,6 +108,56 @@ export default function NfcInventoryManager() {
     finally { setBusy(false); }
   }
 
+  function secureTagFor(unitId: string) {
+    return secureTags.find((tag) => tag.unit_id === unitId) || null;
+  }
+
+  async function configureSecure424(unit: Unit) {
+    const existing = secureTagFor(unit.id);
+    const defaultId = existing?.public_id || `TLX-${unit.serialNumber}`.toUpperCase().replace(/[^A-Z0-9_-]/g, "-").slice(0, 40);
+    const publicId = window.prompt("TapLex Secure public ID:", defaultId)?.trim().toUpperCase();
+    if (!publicId) return;
+    const uidHex = window.prompt("NTAG 424 DNA UID (14 hex characters):", existing?.uid_hex || "")?.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+    if (!uidHex) return;
+    const defaultDestination = existing?.destination_path || (unit.profileHandle ? `/p/${unit.profileHandle}` : "");
+    const destinationPath = window.prompt("TapLex destination path (example /p/name or /x/experience):", defaultDestination)?.trim() || "";
+
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/admin/nfc/secure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitId: unit.id, publicId, uidHex, destinationPath }),
+      });
+      const data = await readApiResponse<{ secureTag?: { publicId: string } }>(response);
+      if (!response.ok) throw new Error(data.error || "Secure NTAG configuration failed.");
+      const id = data.secureTag?.publicId || publicId;
+      setMessage(`Secure NTAG 424 metadata saved. Program the physical tag with https://taplex.co/s/${id}?e=<PICCData>&c=<MAC> using the TapLex provisioner.`);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Secure NTAG configuration failed.");
+    } finally { setBusy(false); }
+  }
+
+  async function removeSecure424(unit: Unit) {
+    const secure = secureTagFor(unit.id);
+    if (!secure || !window.confirm(`Remove NTAG 424 Secure metadata for ${unit.serialNumber}? This does not rewrite the physical chip.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/admin/nfc/secure", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitId: unit.id }),
+      });
+      const data = await readApiResponse<Record<string, never>>(response);
+      if (!response.ok) throw new Error(data.error || "Secure metadata could not be removed.");
+      setMessage(`${unit.serialNumber} secure metadata removed. The existing NFC inventory unit remains intact.`);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Secure metadata could not be removed.");
+    } finally { setBusy(false); }
+  }
+
   async function setUnitStatus(unit: Unit, nextStatus: "inventory" | "unclaimed") {
     setBusy(true); setError("");
     try {
@@ -153,7 +205,7 @@ export default function NfcInventoryManager() {
     </div>
     <div className="nfc-inventory-toolbar"><label><span>Search inventory</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Serial, owner, order, batch, color, status…" /></label><label><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option>inventory</option><option>unclaimed</option><option>active</option><option>frozen</option><option>transfer_pending</option></select></label><button type="button" onClick={() => setShowAudit(!showAudit)}>{showAudit ? "Hide audit log" : "View audit log"}</button></div>
     {showAudit ? <div className="nfc-audit"><div className="manager-heading"><span>Immutable operations trail</span><b>Latest 100 events</b></div>{auditLogs.map((log) => <article key={log.id}><span>{log.action}</span><b>{log.serial_number || log.batch_number || "Inventory"}</b><small>{log.actor_email} · {new Date(log.created_at).toLocaleString()}</small></article>)}</div> : null}
-    <div className="nfc-table-wrap"><table className="nfc-table"><thead><tr><th>Product</th><th>Status</th><th>Owner / order</th><th>Batch</th><th>Taps</th><th>Controls</th></tr></thead><tbody>{units.map((unit) => <tr key={unit.id}><td><b>{unit.serialNumber}</b><small>{unit.color} {unit.productType}</small></td><td><span className={`nfc-pill ${unit.status}`}>{unit.status}</span>{unit.status === "inventory" ? <button className="nfc-inline-action" onClick={() => void setUnitStatus(unit, "unclaimed")} disabled={busy}>Release for claim</button> : unit.status === "unclaimed" ? <button className="nfc-inline-action" onClick={() => void setUnitStatus(unit, "inventory")} disabled={busy}>Return to inventory</button> : null}</td><td><b>{unit.ownerEmail || unit.purchaserEmail || "Not assigned"}</b><small>{unit.profileHandle ? `@${unit.profileHandle}` : unit.orderId || "No order linked"}</small></td><td><b>{unit.batchNumber}</b><small>{unit.sku}</small></td><td><b>{unit.tapCount}</b><small>{unit.lastTappedAt ? new Date(unit.lastTappedAt).toLocaleDateString() : "No taps"}</small></td><td><div className="nfc-row-actions">{unit.status !== "frozen" ? <button onClick={() => void action(unit, "freeze")} disabled={busy}>Freeze</button> : <button onClick={() => void action(unit, "release")} disabled={busy}>Release</button>}<button onClick={() => void action(unit, "replace")} disabled={busy}>Replace</button>{unit.status === "active" ? <button onClick={() => void action(unit, "transfer")} disabled={busy}>Transfer</button> : null}<button className="danger" onClick={() => openReset(unit)} disabled={busy}>Reset Tag</button></div></td></tr>)}{!loading && !units.length ? <tr><td colSpan={6}><p className="admin-empty">No NFC products match this search.</p></td></tr> : null}</tbody></table>{loading ? <p className="admin-empty">Loading secure NFC inventory…</p> : null}</div>
+    <div className="nfc-table-wrap"><table className="nfc-table"><thead><tr><th>Product</th><th>Status</th><th>Owner / order</th><th>Batch</th><th>Taps</th><th>Controls</th></tr></thead><tbody>{units.map((unit) => <tr key={unit.id}><td><b>{unit.serialNumber}</b><small>{unit.color} {unit.productType}</small>{secureTagFor(unit.id) ? <small>Secure 424 ✓ · {secureTagFor(unit.id)?.public_id} · counter {secureTagFor(unit.id)?.highest_counter ?? 0}</small> : null}</td><td><span className={`nfc-pill ${unit.status}`}>{unit.status}</span>{unit.status === "inventory" ? <button className="nfc-inline-action" onClick={() => void setUnitStatus(unit, "unclaimed")} disabled={busy}>Release for claim</button> : unit.status === "unclaimed" ? <button className="nfc-inline-action" onClick={() => void setUnitStatus(unit, "inventory")} disabled={busy}>Return to inventory</button> : null}</td><td><b>{unit.ownerEmail || unit.purchaserEmail || "Not assigned"}</b><small>{unit.profileHandle ? `@${unit.profileHandle}` : unit.orderId || "No order linked"}</small></td><td><b>{unit.batchNumber}</b><small>{unit.sku}</small></td><td><b>{unit.tapCount}</b><small>{unit.lastTappedAt ? new Date(unit.lastTappedAt).toLocaleDateString() : "No taps"}</small></td><td><div className="nfc-row-actions">{unit.status !== "frozen" ? <button onClick={() => void action(unit, "freeze")} disabled={busy}>Freeze</button> : <button onClick={() => void action(unit, "release")} disabled={busy}>Release</button>}<button onClick={() => void action(unit, "replace")} disabled={busy}>Replace</button>{unit.status === "active" ? <button onClick={() => void action(unit, "transfer")} disabled={busy}>Transfer</button> : null}{secureTagFor(unit.id) ? <button onClick={() => void configureSecure424(unit)} disabled={busy}>Edit Secure 424</button> : <button onClick={() => void configureSecure424(unit)} disabled={busy}>Add Secure 424</button>}{secureTagFor(unit.id) ? <button className="danger" onClick={() => void removeSecure424(unit)} disabled={busy}>Remove Secure</button> : null}<button className="danger" onClick={() => openReset(unit)} disabled={busy}>Reset Tag</button></div></td></tr>)}{!loading && !units.length ? <tr><td colSpan={6}><p className="admin-empty">No NFC products match this search.</p></td></tr> : null}</tbody></table>{loading ? <p className="admin-empty">Loading secure NFC inventory…</p> : null}</div>
   </section>
   {resetUnit ? <div className="taplex-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setResetUnit(null); }}>
     <section className="taplex-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="reset-tag-title">
