@@ -1,63 +1,51 @@
 # TapLex
 
-TapLex is a premium black-and-gold NFC networking platform for creators, professionals, local services, and community builders. The MVP lets users create a profile, showcase talent and services, get discovered, share a public profile, and follow a clear subscription upgrade path.
+TapLex is a premium NFC networking and physical-digital experience platform.
 
-## Project Structure
+## Active application
 
-```text
-TapLex/
-  frontend/   Next.js App Router application
-  backend/    Future API foundation; not required for the frontend preview
-  assets/     Brand assets and product files
-  docs/       Setup and architecture notes
-  AGENTS.md   Project instructions
-  README.md   This guide
+The production application lives in `sites-live/`.
+
+Current architecture:
+
+- Next.js App Router + React 19
+- Vinext / Vite
+- Cloudflare Worker runtime
+- Cloudflare D1 database
+- Cloudflare R2 object storage
+- Drizzle schema tooling
+- Stripe commerce
+- Firebase is retained only where the live app uses Firebase Cloud Messaging configuration; it is not the primary TapLex database.
+
+The older root `frontend/` and `backend/` applications were prototype implementations and are being removed from the active branch so contributors do not accidentally build against obsolete Firebase/Firestore architecture.
+
+## NFC architecture
+
+TapLex already has one NFC inventory system:
+
+- `nfc_batches`
+- `nfc_units`
+- `nfc_tap_events`
+- `nfc_transfers`
+- `nfc_audit_logs`
+
+NTAG 424 DNA support extends that system through `nfc_secure_tags`. It does not create a second tag registry.
+
+The standard resolver remains `/t/{secret}` for existing tags. NTAG 424 DNA secure taps use `/s/{publicId}?e=...&c=...` and are cryptographically verified before redirecting to their configured TapLex destination.
+
+## Development
+
+```bash
+cd sites-live
+npm run dev
 ```
 
-## Run The Frontend
+Useful checks:
 
-From PowerShell:
-
-```powershell
-cd "C:\Users\bhold\OneDrive\Documents\TapLex\frontend"
-npm.cmd install
-npm.cmd run dev -- --hostname 127.0.0.1 --port 3000
+```bash
+npm run typecheck
+npm run build
+npm test
 ```
 
-Open `http://127.0.0.1:3000/`.
-
-## Profile Persistence
-
-The profile builder is at `/profile-builder`. Profiles are published at `/profile/[username]`.
-
-- With all Firebase environment values configured, TapLex saves to Firestore using the signed-in Firebase Auth UID.
-- Without Firebase configuration, TapLex saves to a versioned localStorage store in the current browser.
-- Usernames are reserved case-insensitively through `usernames/{usernameLower}`.
-- New profiles start on `free`; booking links are retained only for `pro` and `business` profiles.
-- Profile and cover images upload to owner-scoped Firebase Storage paths with a 5 MB image limit.
-- Public profiles can show an optional phone number and download a `.vcf` contact card.
-
-Firebase setup and security rules are documented in `docs/FIREBASE_PROFILE_SETUP.md`.
-
-## Checks
-
-```powershell
-cd "C:\Users\bhold\OneDrive\Documents\TapLex\frontend"
-npm.cmd test -- --runInBand
-npm.cmd run build
-```
-
-## Main Routes
-
-```text
-/
-/pricing
-/discover
-/register
-/login
-/dashboard
-/profile-builder
-/profile/demo
-/profile/[username]
-/admin-dashboard
-```
+See `docs/ARCHITECTURE.md` and `docs/NTAG424_SECURE.md`.
