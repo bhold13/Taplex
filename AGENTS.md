@@ -1,37 +1,43 @@
 # TapLex Agent Instructions
 
-## Project Shape
+## Source of truth
 
-- The runnable frontend lives in `frontend/`.
-- Frontend source lives in `frontend/src/`.
-- Static frontend assets live in `frontend/public/`.
-- Backend/API work belongs in `backend/`.
-- Product notes, setup docs, database rules, deployment notes, and test plans belong in `docs/`.
-- Brand files, logos, images, and product photos belong in `assets/`.
+The active TapLex application is `sites-live/`.
 
-## Frontend
+Do not rebuild TapLex from the removed legacy Firebase frontend/backend applications.
 
-- This is a Next.js App Router project using JavaScript.
-- Keep imports using the `@/` alias, which points to `frontend/src/`.
-- Keep reusable UI in `frontend/src/components/`.
-- Keep route files in `frontend/src/app/`.
-- Keep shared helpers in `frontend/src/lib/`.
-- Use CSS Modules for component-specific styling.
+## Production architecture
 
-## Commands
+- UI/routes: `sites-live/app/`
+- Components: `sites-live/components/`
+- Server/domain logic: `sites-live/lib/`
+- D1 runtime schema initialization: `sites-live/lib/database.ts`
+- Drizzle models: `sites-live/db/schema.ts`
+- Cloudflare Worker entry: `sites-live/worker/index.ts`
+- Object storage: R2 binding `BUCKET`
+- Database: D1 binding `DB`
 
-Run frontend commands from `frontend/`:
+## NFC rules
 
-```powershell
-npm.cmd install
-npm.cmd run dev
-npm.cmd run build
+There is one NFC inventory system. Preserve existing `nfc_units`, claims, ownership, transfers, analytics, and permanent `/t/{secret}` resolver behavior.
+
+NTAG 424 DNA security must extend existing units through `nfc_secure_tags`.
+
+Secure resolver:
+
+```text
+/s/{publicId}?e=<encrypted PICCData>&c=<SDM MAC>
 ```
 
-Run backend commands from `backend/` only when API work is needed.
+Never place AES keys in client code, public environment variables, D1 plaintext columns, URLs, QR codes, logs, or analytics payloads.
+
+Development zero keys are permitted only for explicitly marked development tags and server-side test configuration.
 
 ## Safety
 
-- Do not move app files out of `frontend/src/` unless the README is updated too.
-- Do not put secrets in frontend files.
-- Keep generated folders such as `node_modules/`, `.next/`, `.venv/`, and cache folders out of source control.
+- Inspect current code before changing routes or schema.
+- Preserve production data and IDs.
+- Use additive schema changes.
+- Do not reseed or replace production NFC data.
+- Do not remove Firebase from `sites-live` while FCM/push notification code still uses it.
+- Do not commit generated `.vinext` output or tar archives.

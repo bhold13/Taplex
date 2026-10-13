@@ -1,1 +1,0 @@
-"""TapLex backend package."""
