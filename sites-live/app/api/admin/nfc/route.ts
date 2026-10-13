@@ -1,5 +1,6 @@
 import { authorizeAdminApi } from "@/lib/admin";
 import { adminNfcAction, createNfcBatch, listNfcAuditLogs, listNfcInventory } from "@/lib/nfc";
+import { listSecureNfcTags } from "@/lib/secure-nfc";
 
 export const dynamic = "force-dynamic";
 
@@ -8,11 +9,12 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
   try {
     const url = new URL(request.url);
-    const [units, auditLogs] = await Promise.all([
+    const [units, auditLogs, secureTags] = await Promise.all([
       listNfcInventory({ search: url.searchParams.get("search") ?? "", status: url.searchParams.get("status") ?? "" }),
       listNfcAuditLogs(),
+      listSecureNfcTags(),
     ]);
-    return Response.json({ units, auditLogs }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ units, auditLogs, secureTags }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "NFC inventory could not be loaded." }, { status: 500 });
   }
