@@ -176,3 +176,28 @@ export const authAttempts = sqliteTable("auth_attempts", {
   attemptCount: integer("attempt_count").notNull().default(0),
   windowStartedAt: text("window_started_at").notNull(),
 });
+
+
+// Secure NTAG 424 DNA metadata extends the existing nfc_units inventory.
+// AES keys are never stored in this table; key material stays in server-side secrets/key management.
+export const nfcSecureTags = sqliteTable("nfc_secure_tags", {
+  unitId: text("unit_id").primaryKey(),
+  publicId: text("public_id").notNull(),
+  chipType: text("chip_type").notNull().default("NTAG424DNA"),
+  uidHex: text("uid_hex").notNull(),
+  securityMode: text("security_mode").notNull().default("sdm"),
+  keyMode: text("key_mode").notNull().default("development"),
+  destinationPath: text("destination_path"),
+  status: text("status").notNull().default("active"),
+  highestCounter: integer("highest_counter").notNull().default(0),
+  verifiedTapCount: integer("verified_tap_count").notNull().default(0),
+  replayCount: integer("replay_count").notNull().default(0),
+  invalidCount: integer("invalid_count").notNull().default(0),
+  lastVerifiedAt: text("last_verified_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("nfc_secure_tags_public_id_unique").on(table.publicId),
+  uniqueIndex("nfc_secure_tags_uid_unique").on(table.uidHex),
+  index("nfc_secure_tags_status_idx").on(table.status, table.updatedAt),
+]);
