@@ -192,3 +192,18 @@ export async function verifySecureTap(publicIdRaw: string, encryptedPiccHex: str
     destination,
   };
 }
+
+
+export async function resolveDevelopmentSecureTap(encryptedPiccHex: string, receivedMacHex: string) {
+  await ensureDatabaseSchema();
+  const keys = developmentKeys();
+  const verification = verifyNtag424Sdm({ encryptedPiccHex, receivedMacHex, ...keys });
+  if (!verification.verified) throw new Error("TapLex Secure authentication failed.");
+
+  const row = await requireDatabase().prepare(
+    "SELECT public_id FROM nfc_secure_tags WHERE UPPER(uid_hex)=? AND status='active' AND key_mode='development' LIMIT 1"
+  ).bind(verification.uidHex).first<{ public_id: string }>();
+
+  if (!row) throw new Error("This verified development tag has not been registered in TapLex Secure yet.");
+  return { publicId: row.public_id, uidHex: verification.uidHex, counter: verification.counter };
+}
